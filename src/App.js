@@ -1,19 +1,20 @@
-import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import LoginPage from "./components/LoginPage";
 import AdminDashboard from "./components/AdminDashboard";
-import CategoryImageUploader from "./components/CategoryImageUploader";
 import CategoryImageViewer from "./components/CategoryImageViewer";
+import CartPage from "./components/CartPage";
 
-export default function App() {
+function App() {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/upload" element={<CategoryImageUploader />} />
         <Route path="/user" element={<CategoryImageViewer />} />
+        <Route path="/cart" element={<CartPage />} />
       </Routes>
     </Router>
   );
 }
+
+export default App;
