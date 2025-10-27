@@ -12,7 +12,7 @@ export default function App() {
         <Route path="/" element={<LoginPage />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/upload" element={<CategoryImageUploader />} />
-        <Route path="/view" element={<CategoryImageViewer />} />
+        <Route path="/user" element={<CategoryImageViewer />} />
       </Routes>
     </Router>
   );
