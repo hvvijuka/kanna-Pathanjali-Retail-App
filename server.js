@@ -45,6 +45,47 @@ app.get("/api/signature", (req, res) => {
 });
 
 // ----------------------------
+// ✅ Fetch all images recursively under "Radha"
+// ----------------------------
+// ----------------------------
+// ✅ Fetch *all* images recursively from Radha and subfolders
+// ----------------------------
+app.get("/api/getCloudImages", async (req, res) => {
+  try {
+    const MAIN_FOLDER = "Radha";
+    let allResources = [];
+    let nextCursor = null;
+
+    do {
+      const result = await cloudinary.search
+        // 👇 Search recursively for all images under Radha (any nested depth)
+        .expression(`folder:${MAIN_FOLDER}/*`)
+        .sort_by("public_id", "asc")
+        .max_results(100)
+        .next_cursor(nextCursor || undefined)
+        .execute();
+
+      allResources = allResources.concat(result.resources);
+      nextCursor = result.next_cursor;
+    } while (nextCursor);
+
+    // ✅ Filter only those under Radha/
+    const filtered = allResources.filter((img) =>
+      img.public_id.startsWith(`${MAIN_FOLDER}/`)
+    );
+
+    console.log(`✅ Total images fetched from Cloudinary: ${filtered.length}`);
+    res.json(filtered);
+  } catch (err) {
+    console.error("❌ Error fetching from Cloudinary:", err);
+    res.status(500).json({ error: "Failed to fetch images from Cloudinary" });
+  }
+});
+
+
+
+
+// ----------------------------
 // 📁 Fetch all folders & images under Radha
 // ----------------------------
 app.get("/api/getImages", async (req, res) => {

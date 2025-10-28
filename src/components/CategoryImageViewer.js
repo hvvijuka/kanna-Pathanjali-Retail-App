@@ -1,148 +1,154 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-// Cloudinary folder info (for reference)
-const CLOUD_NAME = "dqdkd2crn";
-const FOLDER = "Radha";
-
 export default function CategoryImageViewer() {
   const navigate = useNavigate();
   const [imagesByCategory, setImagesByCategory] = useState({});
   const [loading, setLoading] = useState(false);
   const [cart, setCart] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState("");
+  const [expandedCategory, setExpandedCategory] = useState(null);
 
   useEffect(() => {
-    alert("CategoryImageViewer mounted!");
     fetchImagesFromCloud();
   }, []);
 
   const fetchImagesFromCloud = async () => {
     try {
       setLoading(true);
-      //alert("Starting fetchImagesFromCloud...");
+      const res = await fetch("http://localhost:5001/api/getCloudImages");
 
-      const res = await fetch("http://localhost:5000/api/getCloudImages");
-      //alert(`Fetch response status: ${res.status}`);
-
-      if (!res.ok) {
-        //alert(`Failed to fetch images: ${res.status} ${res.statusText}`);
-        setImagesByCategory({});
-        return;
-      }
-
+      if (!res.ok) throw new Error(`Failed: ${res.status} ${res.statusText}`);
       const data = await res.json();
-      //alert(`Number of resources fetched: ${data.length}`);
+      if (!data || data.length === 0) throw new Error("No images found!");
 
-      if (!data || data.length === 0) {
-        //alert("No resources found in Cloudinary folder!");
-        setImagesByCategory({});
-        return;
-      }
-
-      // Group images by category (use the first part of public_id as category)
+      // ✅ Group by subfolder
       const grouped = {};
       data.forEach((img) => {
-        const parts = img.public_id.split("/"); // e.g., "Radha/Honey/honey1"
-        const category = parts.length > 1 ? parts[1] : "Uncategorized";
+        const parts = img.public_id.split("/");
+        const category =
+          parts.length > 1 && parts[1]
+            ? parts.slice(1, -1).join("/") || parts[1]
+            : "Uncategorized";
 
         if (!grouped[category]) grouped[category] = [];
         grouped[category].push({
-          id: img.public_id,
+          id: img.asset_id,
           name: parts[parts.length - 1],
           secure_url: img.secure_url,
           price: Math.floor(Math.random() * 500) + 50,
-          description: "Product description here",
+          description: "Patanjali product",
         });
       });
 
-      //alert(`Categories found: ${Object.keys(grouped).join(", ")}`);
       setImagesByCategory(grouped);
-      setSelectedCategory(Object.keys(grouped)[0] || "");
-      //alert("Images grouped by category successfully!");
+      const firstCategory = Object.keys(grouped)[0];
+      setExpandedCategory(firstCategory || null);
     } catch (err) {
-      alert("Error fetching from Cloudinary: " + err.message);
-      console.error("Error fetching from Cloudinary:", err);
+      alert("❌ " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCategoryChange = (e) => {
-    setSelectedCategory(e.target.value);
-  };
-
   const handleAddToCart = (item) => {
     if (!cart.find((i) => i.id === item.id)) {
       setCart([...cart, { ...item, qty: 1 }]);
-      alert(`Added to cart: ${item.name}`);
+      alert(`✅ Added to cart: ${item.name}`);
     } else {
-      alert(`${item.name} already in cart!`);
+      alert(`${item.name} is already in cart!`);
     }
   };
 
   const handleGoToCart = () => {
-    alert(`Navigating to cart with ${cart.length} items`);
     navigate("/cart", { state: { cart } });
+  };
+
+  const handleLogout = () => {
+    alert("👋 Logged out successfully!");
+    navigate("/");
+  };
+
+  const handleToggleCategory = (category) => {
+    setExpandedCategory(expandedCategory === category ? null : category);
   };
 
   const categories = Object.keys(imagesByCategory);
 
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold mb-4 text-center text-gray-800">
-        Shop Patanjali Products
-      </h2>
-
-      <div className="flex justify-between mb-4">
-        <select
-          value={selectedCategory}
-          onChange={handleCategoryChange}
-          className="border p-2 rounded-lg"
-        >
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
-        </select>
-
-        <button
-          onClick={handleGoToCart}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-        >
-          Go to Cart ({cart.length})
-        </button>
+    <div className="p-6 min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">
+          🛍️ Patanjali Product Gallery
+        </h2>
+        <div className="flex gap-2">
+          <button
+            onClick={handleGoToCart}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+          >
+            Go to Cart ({cart.length})
+          </button>
+          <button
+            onClick={handleLogout}
+            className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       {loading ? (
         <p className="text-center text-gray-500">Loading images...</p>
-      ) : selectedCategory && imagesByCategory[selectedCategory] ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {imagesByCategory[selectedCategory].map((item) => (
-            <div
-              key={item.id}
-              className="border rounded-xl p-3 shadow-sm hover:shadow-md transition"
-            >
-              <img
-                src={item.secure_url}
-                alt={item.name}
-                className="w-full h-40 object-cover rounded-lg mb-2"
-              />
-              <h3 className="font-semibold text-gray-800">{item.name}</h3>
-              <p className="text-gray-600">₹{item.price}</p>
-              <p className="text-sm text-gray-500">{item.description}</p>
-              <button
-                onClick={() => handleAddToCart(item)}
-                className="mt-2 w-full bg-green-600 text-white py-1 rounded hover:bg-green-700"
+      ) : categories.length === 0 ? (
+        <p className="text-center text-gray-500">No images found.</p>
+      ) : (
+        <div className="space-y-4">
+          {categories.map((category) => (
+            <div key={category} className="border rounded-lg shadow-sm bg-white">
+              {/* Category Header */}
+              <div
+                className="flex justify-between items-center p-4 bg-green-100 cursor-pointer rounded-t-lg"
+                onClick={() => handleToggleCategory(category)}
               >
-                Add to Cart
-              </button>
+                <h3 className="font-semibold text-lg text-gray-800">
+                  {category}
+                </h3>
+                <span className="text-gray-600">
+                  {expandedCategory === category ? "▲" : "▼"}
+                </span>
+              </div>
+
+              {/* Category Content */}
+              {expandedCategory === category && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4">
+                  {imagesByCategory[category].map((item) => (
+                    <div
+                      key={item.id}
+                      className="border rounded-xl p-3 shadow-sm hover:shadow-md transition bg-white"
+                    >
+                      <img
+                        src={item.secure_url}
+                        alt={item.name}
+                        className="w-full h-40 object-cover rounded-lg mb-2"
+                      />
+                      <h4 className="font-semibold text-gray-800">{item.name}</h4>
+                      <p className="text-gray-600">₹{item.price}</p>
+                      <p className="text-sm text-gray-500 mb-2">
+                        {item.description}
+                      </p>
+                      <button
+                        onClick={() => handleAddToCart(item)}
+                        className="w-full bg-green-600 text-white py-1.5 rounded hover:bg-green-700"
+                      >
+                        Add to Cart
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
-      ) : (
-        <p className="text-center text-gray-500">No images found.</p>
       )}
     </div>
   );
