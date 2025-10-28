@@ -12,7 +12,7 @@ export default function AdminDashboard() {
   const [items, setItems] = useState([]);
   const navigate = useNavigate();
 
-  // Fetch previously uploaded images
+
   useEffect(() => {
   const fetchUploadedImages = async () => {
     try {
@@ -21,11 +21,14 @@ export default function AdminDashboard() {
 
       const allItems = [];
       const allCategories = new Set(["All"]);
+      let debugMessage = "Fetched Images:\n";
 
       // Flatten folder-wise images into a single list
       for (const folder in folderImages) {
         const images = folderImages[folder];
         const category = folder.replace("Radha/", "") || "All";
+
+        debugMessage += `\n📂 Folder: ${category}\n`;
 
         images.forEach((img) => {
           allItems.push({
@@ -36,6 +39,9 @@ export default function AdminDashboard() {
             uploaded: true,
             file: null,
           });
+
+          // Build debug text
+          debugMessage += ` - ${img.name}\n`;
         });
 
         allCategories.add(category);
@@ -45,13 +51,16 @@ export default function AdminDashboard() {
       setCategories([...allCategories]);
 
       console.log("Fetched Cloudinary images:", allItems);
+
+      // ✅ Show all image names in one alert (instead of hundreds)
+      alert(debugMessage);
     } catch (err) {
       console.error("Failed to fetch Cloudinary images:", err);
+      alert("Error fetching images. Check console for details.");
     }
-  };
-
-  fetchUploadedImages();
-}, []);
+    };
+    fetchUploadedImages();
+  }, []);
 
   // Add new category
   const handleAddCategory = () => {
@@ -93,66 +102,68 @@ export default function AdminDashboard() {
     navigate("/");
   };
 
-  // ------------------------
-  // Upload all local images to Cloudinary into category subfolders
-  // ------------------------
+
   const handleUploadAllSigned = async () => {
-    if (items.length === 0) return alert("No images to upload!");
+  if (items.length === 0) return alert("No images to upload!");
 
-    const newItems = [...items];
+  const newItems = [...items];
 
-    // Group items by category
-    const categoryMap = {};
-    newItems.forEach((item, index) => {
-      if (!item.uploaded && item.file) {
-        const cat = item.category?.trim().replace(/\s+/g, "_") || "Uncategorized";
-        if (!categoryMap[cat]) categoryMap[cat] = [];
-        categoryMap[cat].push({ ...item, index });
-      }
-    });
-
-    for (const cat in categoryMap) {
-      const itemsInCategory = categoryMap[cat];
-
-      // ✅ Get signature per folder
-      const folderPath = `${ASSET_FOLDER}/${cat}`;
-      const { data: sigData } = await axios.get(
-        `http://localhost:5001/api/signature?folder=${encodeURIComponent(folderPath)}`
-      );
-      const { signature, timestamp, apiKey, cloudName } = sigData;
-
-      const uploadPromises = itemsInCategory.map(async ({ file, name, index }) => {
-        try {
-          const formData = new FormData();
-          formData.append("file", file);
-          formData.append("folder", folderPath);
-          formData.append("api_key", apiKey);
-          formData.append("timestamp", timestamp);
-          formData.append("signature", signature);
-
-          const response = await axios.post(
-            `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-            formData
-          );
-
-          // Update local state
-          newItems[index].image = response.data.secure_url;
-          newItems[index].uploaded = true;
-
-          console.log(`Uploaded successfully: ${name} → ${folderPath}`);
-        } catch (err) {
-          const errorMsg = err.response?.data?.error?.message || err.message;
-          console.error(`Failed to upload ${name}: ${errorMsg}`);
-          alert(`Failed to upload "${name}": ${errorMsg}`);
-        }
-      });
-
-      await Promise.all(uploadPromises);
+  // Group items by category
+  const categoryMap = {};
+  newItems.forEach((item, index) => {
+    if (!item.uploaded && item.file) {
+      const cat = item.category?.trim().replace(/\s+/g, "_") || "Uncategorized";
+      if (!categoryMap[cat]) categoryMap[cat] = [];
+      categoryMap[cat].push({ ...item, index });
     }
+  });
 
-    setItems(newItems);
-    alert("All images processed!");
+  for (const cat in categoryMap) {
+    const itemsInCategory = categoryMap[cat];
+
+    for (const { file, name, index } of itemsInCategory) {
+      try {
+        const folderPath = `${ASSET_FOLDER}/${cat}`;
+        const publicId = name.replace(/\.[^/.]+$/, ""); // remove file extension
+
+        // ✅ Get signature for this specific file
+        const { data: sigData } = await axios.get(
+          `http://localhost:5001/api/signature?folder=${encodeURIComponent(
+            folderPath
+          )}&public_id=${encodeURIComponent(publicId)}`
+        );
+
+        const { signature, timestamp, apiKey, cloudName } = sigData;
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("folder", folderPath);
+        formData.append("public_id", publicId);
+        formData.append("api_key", apiKey);
+        formData.append("timestamp", timestamp);
+        formData.append("signature", signature);
+
+        const response = await axios.post(
+          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+          formData
+        );
+
+        newItems[index].image = response.data.secure_url;
+        newItems[index].uploaded = true;
+
+        console.log(`✅ Uploaded successfully: ${name} → ${folderPath}`);
+      } catch (err) {
+        const errorMsg = err.response?.data?.error?.message || err.message;
+        console.error(`❌ Failed to upload ${name}: ${errorMsg}`);
+        alert(`Failed to upload "${name}": ${errorMsg}`);
+      }
+    }
+  }
+
+  setItems(newItems);
+  alert("✅ All images uploaded successfully!");
   };
+
 
   // Group items by category for display
   const groupedItems = categories.reduce((acc, cat) => {

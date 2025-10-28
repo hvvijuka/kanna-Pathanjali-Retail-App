@@ -15,16 +15,17 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
-
 // ----------------------------
-// 🔐 Signed upload route
+// 🔐 Signed upload route (fixed)
 // ----------------------------
 app.get("/api/signature", (req, res) => {
   try {
-    const { folder } = req.query;
+    const { folder, public_id } = req.query;
     const timestamp = Math.floor(Date.now() / 1000);
+
     const paramsToSign = { timestamp };
     if (folder) paramsToSign.folder = folder;
+    if (public_id) paramsToSign.public_id = public_id;
 
     const signature = cloudinary.utils.api_sign_request(
       paramsToSign,
