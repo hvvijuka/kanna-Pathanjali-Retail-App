@@ -1,7 +1,7 @@
 import React, { Suspense, lazy, useState, useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
 
-// Lazy-load components
+// Dummy/Lazy components
 const LoginPage = lazy(() => import("./components/LoginPage"));
 const SignupPage = lazy(() => import("./components/SignupPage"));
 const AdminDashboard = lazy(() => import("./components/AdminDashboard"));
@@ -12,6 +12,7 @@ const ForgotPasswordPage = lazy(() => import("./components/ForgotPasswordPage"))
 function App() {
   const [loading, setLoading] = useState(true);
 
+  // Show loading for 0.5s (or until real data loads)
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 500);
     return () => clearTimeout(timer);
@@ -34,12 +35,13 @@ function App() {
       }
     >
       <Routes>
+        {/* Enable routes one by one to avoid blank screens */}
         <Route path="/" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/user" element={<CategoryImageViewer />} />
-        <Route path="/cart" element={<CartPage />} />
-        <Route path="/forgot" element={<ForgotPasswordPage />} />
+        {/* <Route path="/signup" element={<SignupPage />} /> */}
+        {/* <Route path="/admin" element={<AdminDashboard />} /> */}
+        {/* <Route path="/user" element={<CategoryImageViewer />} /> */}
+        {/* <Route path="/cart" element={<CartPage />} /> */}
+        {/* <Route path="/forgot" element={<ForgotPasswordPage />} /> */}
       </Routes>
     </Suspense>
   );
