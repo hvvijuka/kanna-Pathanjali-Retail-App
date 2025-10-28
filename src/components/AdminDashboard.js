@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 const CLOUD_NAME = "dqdkd2crn";
-const UPLOAD_PRESET = "radha-kanna-retail-app";
+const ASSET_FOLDER = "Radha"; // main asset folder
 
 export default function AdminDashboard() {
   const [categories, setCategories] = useState(["All"]);
@@ -12,22 +12,19 @@ export default function AdminDashboard() {
   const [items, setItems] = useState([]);
   const navigate = useNavigate();
 
-  // ------------------------
-  // Fetch previously uploaded images on mount
-  // ------------------------
+  // Fetch previously uploaded images
   useEffect(() => {
     const fetchUploadedImages = async () => {
       try {
-        const res = await axios.get("/api/getImages"); // Replace with your backend endpoint
+        const res = await axios.get("/api/getImages"); // Backend endpoint
         const uploadedItems = res.data.map((item) => ({
           ...item,
           uploaded: true,
-          file: null, // no local file for previously uploaded images
+          file: null,
         }));
 
         setItems(uploadedItems);
 
-        // Merge categories from fetched images
         const fetchedCategories = [
           ...new Set(uploadedItems.map((i) => i.category)),
         ];
@@ -36,13 +33,10 @@ export default function AdminDashboard() {
         console.error("Failed to fetch uploaded images:", err);
       }
     };
-
     fetchUploadedImages();
   }, []);
 
-  // ------------------------
   // Add new category
-  // ------------------------
   const handleAddCategory = () => {
     if (newCategory && !categories.includes(newCategory)) {
       setCategories([...categories, newCategory]);
@@ -50,9 +44,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // ------------------------
   // Add local image
-  // ------------------------
   const handleFileUploadLocal = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -74,68 +66,78 @@ export default function AdminDashboard() {
     reader.readAsDataURL(file);
   };
 
-  // ------------------------
   // Delete item
-  // ------------------------
   const handleDelete = (id) => {
     setItems(items.filter((item) => item.id !== id));
   };
 
-  // ------------------------
   // Logout
-  // ------------------------
   const handleLogout = () => {
     navigate("/");
   };
 
   // ------------------------
-  // Upload all local images to Cloudinary
+  // Upload all local images to Cloudinary into category subfolders
   // ------------------------
-  const handleUploadAll = async () => {
-  if (items.length === 0) {
-    alert("No images to upload!");
-    return;
-  }
+  const handleUploadAllSigned = async () => {
+    if (items.length === 0) return alert("No images to upload!");
 
-  const newItems = [...items];
+    const newItems = [...items];
 
-  for (let i = 0; i < newItems.length; i++) {
-    const item = newItems[i];
-
-    if (!item.uploaded && item.file) {
-      try {
-        const formData = new FormData();
-        formData.append("file", item.file);
-        formData.append("upload_preset", UPLOAD_PRESET); // must be UNSIGNED
-
-        console.log("Uploading:", item.name);
-
-        const response = await axios.post(
-          `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-          formData
-        );
-
-        // Update item with Cloudinary URL
-        item.image = response.data.secure_url;
-        item.uploaded = true;
-        newItems[i] = item;
-
-        console.log("Uploaded successfully:", item.name);
-      } catch (err) {
-        const errorMsg = err.response?.data?.error?.message || err.message;
-        console.error("Upload failed:", errorMsg);
-        alert(`Failed to upload "${item.name}": ${errorMsg}`);
+    // Group items by category
+    const categoryMap = {};
+    newItems.forEach((item, index) => {
+      if (!item.uploaded && item.file) {
+        const cat = item.category?.trim().replace(/\s+/g, "_") || "Uncategorized";
+        if (!categoryMap[cat]) categoryMap[cat] = [];
+        categoryMap[cat].push({ ...item, index });
       }
-    }
-  }
+    });
 
-  setItems(newItems);
-  alert("All images processed!");
-};
-  
-  // ------------------------
-  // Group items by category
-  // ------------------------
+    for (const cat in categoryMap) {
+      const itemsInCategory = categoryMap[cat];
+
+      // ✅ Get signature per folder
+      const folderPath = `${ASSET_FOLDER}/${cat}`;
+      const { data: sigData } = await axios.get(
+        `http://localhost:5001/api/signature?folder=${encodeURIComponent(folderPath)}`
+      );
+      const { signature, timestamp, apiKey, cloudName } = sigData;
+
+      const uploadPromises = itemsInCategory.map(async ({ file, name, index }) => {
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("folder", folderPath);
+          formData.append("api_key", apiKey);
+          formData.append("timestamp", timestamp);
+          formData.append("signature", signature);
+
+          const response = await axios.post(
+            `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+            formData
+          );
+
+          // Update local state
+          newItems[index].image = response.data.secure_url;
+          newItems[index].uploaded = true;
+
+          console.log(`Uploaded successfully: ${name} → ${folderPath}`);
+        } catch (err) {
+          const errorMsg = err.response?.data?.error?.message || err.message;
+          console.error(`Failed to upload ${name}: ${errorMsg}`);
+          alert(`Failed to upload "${name}": ${errorMsg}`);
+        }
+      });
+
+      await Promise.all(uploadPromises);
+    }
+
+    setItems(newItems);
+    alert("All images processed!");
+  };
+
+  // Group items by category for display
   const groupedItems = categories.reduce((acc, cat) => {
     acc[cat] = items.filter((item) => item.category === cat);
     return acc;
@@ -175,6 +177,7 @@ export default function AdminDashboard() {
         <select
           onChange={(e) => setSelectedCategory(e.target.value)}
           className="border p-2 rounded"
+          value={selectedCategory}
         >
           {categories.map((cat) => (
             <option key={cat}>{cat}</option>
@@ -192,7 +195,7 @@ export default function AdminDashboard() {
       {/* Upload All Button */}
       {items.some((item) => !item.uploaded) && (
         <button
-          onClick={handleUploadAll}
+          onClick={handleUploadAllSigned}
           className="mb-6 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
         >
           Upload All to Cloudinary
@@ -204,7 +207,7 @@ export default function AdminDashboard() {
         <div key={cat} className="mb-8">
           <h2 className="text-xl font-semibold text-green-800 mb-3">{cat}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {groupedItems[cat].map((item) => (
+            {groupedItems[cat]?.map((item) => (
               <div
                 key={item.id}
                 className="p-4 bg-white rounded-xl shadow hover:shadow-lg transition"
