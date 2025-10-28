@@ -14,27 +14,44 @@ export default function AdminDashboard() {
 
   // Fetch previously uploaded images
   useEffect(() => {
-    const fetchUploadedImages = async () => {
-      try {
-        const res = await axios.get("/api/getImages"); // Backend endpoint
-        const uploadedItems = res.data.map((item) => ({
-          ...item,
-          uploaded: true,
-          file: null,
-        }));
+  const fetchUploadedImages = async () => {
+    try {
+      const res = await axios.get("http://localhost:5001/api/getImages"); // Backend
+      const folderImages = res.data;
 
-        setItems(uploadedItems);
+      const allItems = [];
+      const allCategories = new Set(["All"]);
 
-        const fetchedCategories = [
-          ...new Set(uploadedItems.map((i) => i.category)),
-        ];
-        setCategories((prev) => Array.from(new Set([...prev, ...fetchedCategories])));
-      } catch (err) {
-        console.error("Failed to fetch uploaded images:", err);
+      // Flatten folder-wise images into a single list
+      for (const folder in folderImages) {
+        const images = folderImages[folder];
+        const category = folder.replace("Radha/", "") || "All";
+
+        images.forEach((img) => {
+          allItems.push({
+            id: img.id,
+            name: img.name,
+            image: img.url,
+            category,
+            uploaded: true,
+            file: null,
+          });
+        });
+
+        allCategories.add(category);
       }
-    };
-    fetchUploadedImages();
-  }, []);
+
+      setItems(allItems);
+      setCategories([...allCategories]);
+
+      console.log("Fetched Cloudinary images:", allItems);
+    } catch (err) {
+      console.error("Failed to fetch Cloudinary images:", err);
+    }
+  };
+
+  fetchUploadedImages();
+}, []);
 
   // Add new category
   const handleAddCategory = () => {

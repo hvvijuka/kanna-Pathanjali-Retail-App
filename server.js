@@ -7,7 +7,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ----------------------------
 // Cloudinary configuration
+// ----------------------------
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -15,15 +17,14 @@ cloudinary.config({
 });
 
 // ----------------------------
-// Signature route (signed upload)
+// 🔐 Signed upload route
 // ----------------------------
 app.get("/api/signature", (req, res) => {
   try {
-    const { folder } = req.query; // get folder from frontend
+    const { folder } = req.query;
     const timestamp = Math.floor(Date.now() / 1000);
-
     const paramsToSign = { timestamp };
-    if (folder) paramsToSign.folder = folder; // include folder in signature
+    if (folder) paramsToSign.folder = folder;
 
     const signature = cloudinary.utils.api_sign_request(
       paramsToSign,
@@ -43,28 +44,49 @@ app.get("/api/signature", (req, res) => {
 });
 
 // ----------------------------
-// Example: fetch images from folder
+// 📁 Fetch all folders & images under Radha
 // ----------------------------
-app.get("/api/getCloudImages", async (req, res) => {
+app.get("/api/getImages", async (req, res) => {
   try {
-    const folderName = "Radha"; // Asset folder
-    const result = await cloudinary.search
-      .expression(`folder:${folderName}/*`)
-      .sort_by("public_id", "asc")
-      .max_results(100)
-      .execute();
+    const MAIN_FOLDER = "Radha";
 
-    res.json(result.resources); // send array of images
+    // Step 1: Get all subfolders under Radha
+    const foldersResult = await cloudinary.api.sub_folders(MAIN_FOLDER);
+
+    // ✅ Only include subfolders, not the main folder itself
+    const allFolders = foldersResult.folders.map((f) => f.path);
+
+    const folderImages = {};
+
+    // Step 2: Fetch images for each subfolder
+    for (const folder of allFolders) {
+      const searchResult = await cloudinary.search
+        .expression(`folder:${folder}`)
+        .sort_by("public_id", "asc")
+        .max_results(100)
+        .execute();
+
+      // Store images under their folder name
+      folderImages[folder] = searchResult.resources.map((r) => ({
+        id: r.asset_id,
+        name: r.public_id.split("/").pop(),
+        url: r.secure_url,
+        category: folder.replace(`${MAIN_FOLDER}/`, ""), // e.g., "Krishna"
+      }));
+    }
+
+    res.json(folderImages);
   } catch (err) {
-    console.error("Error fetching from Cloudinary:", err);
+    console.error("Error fetching images:", err);
     res.status(500).json({ error: "Failed to fetch images from Cloudinary" });
   }
 });
+
 
 // ----------------------------
 // Start server
 // ----------------------------
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`✅ Server running on http://localhost:${PORT}`);
 });
