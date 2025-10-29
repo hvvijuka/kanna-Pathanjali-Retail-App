@@ -72,6 +72,8 @@ export default function AdminDashboard() {
     }
   };
 
+
+  
   // Add local image
   const handleFileUploadLocal = (e) => {
     const file = e.target.files[0];
@@ -110,6 +112,9 @@ export default function AdminDashboard() {
 
   const newItems = [...items];
 
+  // ✅ Get backend URL from .env (Render URL)
+  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+
   // Group items by category
   const categoryMap = {};
   newItems.forEach((item, index) => {
@@ -128,9 +133,9 @@ export default function AdminDashboard() {
         const folderPath = `${ASSET_FOLDER}/${cat}`;
         const publicId = name.replace(/\.[^/.]+$/, ""); // remove file extension
 
-        // ✅ Get signature for this specific file
+        // ✅ Use backend URL dynamically (from Render)
         const { data: sigData } = await axios.get(
-          `http://localhost:5001/api/signature?folder=${encodeURIComponent(
+          `${BACKEND_URL}/api/signature?folder=${encodeURIComponent(
             folderPath
           )}&public_id=${encodeURIComponent(publicId)}`
         );
@@ -165,8 +170,6 @@ export default function AdminDashboard() {
   setItems(newItems);
   alert("✅ All images uploaded successfully!");
   };
-
-
   // Group items by category for display
   const groupedItems = categories.reduce((acc, cat) => {
     acc[cat] = items.filter((item) => item.category === cat);
