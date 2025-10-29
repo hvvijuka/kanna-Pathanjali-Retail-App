@@ -22,9 +22,15 @@ cloudinary.config({
 app.get("/api/signature", (req, res) => {
   try {
     const { folder, public_id } = req.query;
+    let { context } = req.query;
     const timestamp = Math.floor(Date.now() / 1000);
 
+    // Decode URI encoding safely
+    if (context) context = decodeURIComponent(context);
+
+    // Build parameters to sign
     const paramsToSign = { timestamp };
+    if (context) paramsToSign.context = context; // must match exactly
     if (folder) paramsToSign.folder = folder;
     if (public_id) paramsToSign.public_id = public_id;
 
@@ -32,6 +38,9 @@ app.get("/api/signature", (req, res) => {
       paramsToSign,
       process.env.CLOUDINARY_API_SECRET
     );
+
+    console.log("✅ Params to sign:", paramsToSign);
+    console.log("✅ Signature:", signature);
 
     res.json({
       signature,
@@ -85,18 +94,19 @@ app.get("/api/getCloudImages", async (req, res) => {
 app.get("/api/getImages", async (req, res) => {
   try {
     const MAIN_FOLDER = "Radha";
+    const folderImages = {};
 
-    // Step 1: Get all subfolders under Radha
+    console.log("📁 Fetching Cloudinary folders under:", MAIN_FOLDER);
+
+    // Step 1️⃣: Get all subfolders under Radha
     const foldersResult = await cloudinary.api.sub_folders(MAIN_FOLDER);
     const allFolders = foldersResult.folders.map((f) => f.path);
 
-    const folderImages = {};
-
-    // Step 2: Fetch images for each subfolder
+    // Step 2️⃣: Fetch images from each subfolder
     for (const folder of allFolders) {
       const searchResult = await cloudinary.search
         .expression(`folder:${folder}`)
-        .with_field("context") // ✅ include metadata
+        .with_field("context") // ✅ ensure metadata comes back
         .sort_by("public_id", "asc")
         .max_results(100)
         .execute();
@@ -106,11 +116,11 @@ app.get("/api/getImages", async (req, res) => {
         name: r.public_id.split("/").pop(),
         url: r.secure_url,
         category: folder.replace(`${MAIN_FOLDER}/`, ""),
-        context: r.context || {}, // ✅ Include metadata
+        context: r.context || {}, // ✅ preserve metadata for frontend
       }));
     }
 
-    // Step 3: Also include images directly under Radha (not just subfolders)
+    // Step 3️⃣: Fetch images directly under "Radha" (root-level images)
     const rootResult = await cloudinary.search
       .expression(`folder:${MAIN_FOLDER}`)
       .with_field("context")
@@ -127,10 +137,10 @@ app.get("/api/getImages", async (req, res) => {
       }));
     }
 
-    console.log("✅ Fetched folders and images with metadata.");
+    console.log("✅ Successfully fetched all folders and images with metadata.");
     res.json(folderImages);
   } catch (err) {
-    console.error("❌ Error fetching images:", err);
+    console.error("❌ Error fetching images from Cloudinary:", err);
     res.status(500).json({ error: "Failed to fetch images from Cloudinary" });
   }
 });

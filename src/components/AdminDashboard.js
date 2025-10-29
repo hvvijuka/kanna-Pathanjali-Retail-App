@@ -16,15 +16,13 @@ export default function AdminDashboard() {
   useEffect(() => {
   const fetchUploadedImages = async () => {
     try {
-
-       //const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
       const BACKEND_URL =
         process.env.REACT_APP_BACKEND_URL ||
         (window.location.hostname === "localhost"
-        ? "http://localhost:5001"
-        : "https://rk-backend-cxfa.onrender.com");
+          ? "http://localhost:5001"
+          : "https://rk-backend-cxfa.onrender.com");
 
-      alert(`🧩 Using backend: ${BACKEND_URL}`);
+      console.log(`🧩 Using backend: ${BACKEND_URL}`);
       const res = await axios.get(`${BACKEND_URL}/api/getImages`);
       const folderImages = res.data;
 
@@ -33,30 +31,35 @@ export default function AdminDashboard() {
 
       for (const folder in folderImages) {
         const images = folderImages[folder];
-        // folder value coming from server is like "Radha/CategoryName"
-        const category = folder.replace(`${ASSET_FOLDER}/`, "") || "All";
+
+        // Extract category from folder path (e.g. "Radha/Temple" → "Temple")
+        const category = folder.replace(/^Radha\//, "") || "All";
 
         images.forEach((img) => {
-          // Backend returns: { id, name, url, category, context }
-          // Always guard against missing fields
-          const id = img.id || img.asset_id || Date.now();
-          const name = img.name || (img.public_id ? img.public_id.split("/").pop() : "unknown");
-          const imageUrl = img.url || img.secure_url || img.url_secure || "";
-          const context = img.context || {}; // server sets context (object) or {}
+          const id = img.asset_id || Date.now();
+          const name = img.original_filename || img.public_id?.split("/").pop() || "unknown";
+          const imageUrl = img.secure_url || img.url || "";
 
-          // Cloudinary stores custom context in context.custom (object) or sometimes context in string
-          // handle both shapes:
-          const customContext =
-            (context.custom && typeof context.custom === "object")
-              ? context.custom
-              : // sometimes context is { custom: "k=v|k2=v2" } or similar — try parse fallback
-              (typeof context === "object" && typeof context.custom === "string")
-                ? context.custom.split("|").reduce((acc, pair) => {
-                    const [k, v] = pair.split("=");
-                    if (k) acc[k] = v ?? "";
-                    return acc;
-                  }, {})
-                : {};
+          // ✅ Robust context extraction
+          let price = "", qty = "", description = "";
+
+          if (img.context) {
+            const custom = img.context.custom || img.context;
+
+            if (typeof custom === "object") {
+              price = custom.price || "";
+              qty = custom.qty || "";
+              description = custom.description || "";
+            } else if (typeof custom === "string") {
+              // Sometimes returned as "price=100|qty=2|description=Test"
+              custom.split("|").forEach((pair) => {
+                const [k, v] = pair.split("=");
+                if (k === "price") price = v;
+                if (k === "qty") qty = v;
+                if (k === "description") description = v;
+              });
+            }
+          }
 
           allItems.push({
             id,
@@ -64,9 +67,9 @@ export default function AdminDashboard() {
             image: imageUrl,
             category,
             uploaded: true,
-            price: customContext.price || "",
-            qty: customContext.qty || "",
-            description: customContext.description || "",
+            price,
+            qty,
+            description,
             file: null,
           });
         });
@@ -76,9 +79,9 @@ export default function AdminDashboard() {
 
       setItems(allItems);
       setCategories([...allCategories]);
-      console.log("Fetched Cloudinary images:", allItems);
+      console.log("✅ Fetched Cloudinary images:", allItems);
     } catch (err) {
-      console.error("Failed to fetch Cloudinary images:", err);
+      console.error("❌ Failed to fetch Cloudinary images:", err);
       alert("Error fetching images. Check console for details.");
     }
   };
@@ -166,9 +169,10 @@ export default function AdminDashboard() {
           const folderPath = `${ASSET_FOLDER}/${cat}`;
           const publicId = name.replace(/\.[^/.]+$/, "");
 
-          // Get signature from backend
+          const contextString = `price=${price}|qty=${qty}|description=${description}`;
+
           const sigRes = await axios.get(
-            `${BACKEND_URL}/api/signature?folder=${encodeURIComponent(folderPath)}&public_id=${encodeURIComponent(publicId)}`
+              `${BACKEND_URL}/api/signature?folder=${encodeURIComponent(folderPath)}&public_id=${encodeURIComponent(publicId)}&context=${encodeURIComponent(contextString)}`
           );
           const { signature, timestamp, apiKey, cloudName } = sigRes.data;
 
@@ -181,7 +185,6 @@ export default function AdminDashboard() {
           formData.append("signature", signature);
 
           // ✅ Attach metadata using Cloudinary's "context" field
-          const contextString = `price=${price}|qty=${qty}|description=${description}`;
           formData.append("context", contextString);
 
           const response = await axios.post(

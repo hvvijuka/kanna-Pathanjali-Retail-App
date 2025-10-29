@@ -16,18 +16,20 @@ const fetchImagesFromCloud = async () => {
   try {
     setLoading(true);
 
-    // ✅ Read backend URL from .env
-    const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+    const BACKEND_URL =
+      process.env.REACT_APP_BACKEND_URL ||
+      (window.location.hostname === "localhost"
+        ? "http://localhost:5001"
+        : "https://rk-backend-cxfa.onrender.com");
 
     const res = await fetch(`${BACKEND_URL}/api/getCloudImages`);
-
     if (!res.ok) throw new Error(`Failed: ${res.status} ${res.statusText}`);
 
     const data = await res.json();
     if (!data || data.length === 0) throw new Error("No images found!");
 
-    // ✅ Group images by subfolder (category)
     const grouped = {};
+
     data.forEach((img) => {
       const parts = img.public_id.split("/");
       const category =
@@ -35,13 +37,36 @@ const fetchImagesFromCloud = async () => {
           ? parts.slice(1, -1).join("/") || parts[1]
           : "Uncategorized";
 
+      // ✅ Parse metadata safely from context
+      let price = "";
+      let qty = "";
+      let description = "";
+
+      const context = img.context || {};
+      const custom = context.custom || {};
+
+      if (typeof custom === "object") {
+        price = custom.price || "";
+        qty = custom.qty || "";
+        description = custom.description || "";
+      } else if (typeof custom === "string") {
+        // Sometimes Cloudinary returns a string like "price=100|qty=2|description=..." — parse it
+        custom.split("|").forEach((pair) => {
+          const [key, val] = pair.split("=");
+          if (key === "price") price = val;
+          if (key === "qty") qty = val;
+          if (key === "description") description = val;
+        });
+      }
+
       if (!grouped[category]) grouped[category] = [];
       grouped[category].push({
         id: img.asset_id,
         name: parts[parts.length - 1],
         secure_url: img.secure_url,
-        price: Math.floor(Math.random() * 500) + 50,
-        description: "Patanjali product",
+        price,
+        qty,
+        description,
       });
     });
 
@@ -49,6 +74,8 @@ const fetchImagesFromCloud = async () => {
 
     const firstCategory = Object.keys(grouped)[0];
     setExpandedCategory(firstCategory || null);
+
+    console.log("✅ Cloud images loaded:", grouped);
   } catch (err) {
     alert("❌ " + err.message);
     console.error("Error fetching images:", err);
