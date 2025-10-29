@@ -3,94 +3,91 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 const CLOUD_NAME = "dqdkd2crn";
-const ASSET_FOLDER = "Radha"; // main asset folder
+const ASSET_FOLDER = "Radha";
 
 export default function AdminDashboard() {
   const [categories, setCategories] = useState(["All"]);
   const [newCategory, setNewCategory] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [items, setItems] = useState([]);
+  const [editingItemId, setEditingItemId] = useState(null); // ✅ only one editable item
   const navigate = useNavigate();
 
-
   useEffect(() => {
-  const fetchUploadedImages = async () => {
-    try {
-      const BACKEND_URL =
-        process.env.REACT_APP_BACKEND_URL ||
-        (window.location.hostname === "localhost"
-          ? "http://localhost:5001"
-          : "https://rk-backend-cxfa.onrender.com");
+    const fetchUploadedImages = async () => {
+      try {
+        const BACKEND_URL =
+          process.env.REACT_APP_BACKEND_URL ||
+          (window.location.hostname === "localhost"
+            ? "http://localhost:5001"
+            : "https://rk-backend-cxfa.onrender.com");
 
-      console.log(`🧩 Using backend: ${BACKEND_URL}`);
-      const res = await axios.get(`${BACKEND_URL}/api/getImages`);
-      const folderImages = res.data;
+        console.log(`🧩 Using backend: ${BACKEND_URL}`);
+        const res = await axios.get(`${BACKEND_URL}/api/getImages`);
+        const folderImages = res.data;
 
-      const allItems = [];
-      const allCategories = new Set(["All"]);
+        const allItems = [];
+        const allCategories = new Set(["All"]);
 
-      for (const folder in folderImages) {
-        const images = folderImages[folder];
+        for (const folder in folderImages) {
+          const images = folderImages[folder];
+          const category = folder.replace(/^Radha\//, "") || "All";
 
-        // Extract category from folder path (e.g. "Radha/Temple" → "Temple")
-        const category = folder.replace(/^Radha\//, "") || "All";
+          images.forEach((img) => {
+            const id = img.asset_id || Date.now() + Math.random();
+            const name =
+              img.original_filename ||
+              img.public_id?.split("/").pop() ||
+              "unknown";
+            const imageUrl = img.secure_url || img.url || "";
 
-        images.forEach((img) => {
-          const id = img.asset_id || Date.now();
-          const name = img.original_filename || img.public_id?.split("/").pop() || "unknown";
-          const imageUrl = img.secure_url || img.url || "";
+            let price = "",
+              qty = "",
+              description = "";
 
-          // ✅ Robust context extraction
-          let price = "", qty = "", description = "";
-
-          if (img.context) {
-            const custom = img.context.custom || img.context;
-
-            if (typeof custom === "object") {
-              price = custom.price || "";
-              qty = custom.qty || "";
-              description = custom.description || "";
-            } else if (typeof custom === "string") {
-              // Sometimes returned as "price=100|qty=2|description=Test"
-              custom.split("|").forEach((pair) => {
-                const [k, v] = pair.split("=");
-                if (k === "price") price = v;
-                if (k === "qty") qty = v;
-                if (k === "description") description = v;
-              });
+            if (img.context) {
+              const custom = img.context.custom || img.context;
+              if (typeof custom === "object") {
+                price = custom.price || "";
+                qty = custom.qty || "";
+                description = custom.description || "";
+              } else if (typeof custom === "string") {
+                custom.split("|").forEach((pair) => {
+                  const [k, v] = pair.split("=");
+                  if (k === "price") price = v;
+                  if (k === "qty") qty = v;
+                  if (k === "description") description = v;
+                });
+              }
             }
-          }
 
-          allItems.push({
-            id,
-            name,
-            image: imageUrl,
-            category,
-            uploaded: true,
-            price,
-            qty,
-            description,
-            file: null,
+            allItems.push({
+              id,
+              name,
+              image: imageUrl,
+              category,
+              uploaded: true,
+              price,
+              qty,
+              description,
+            });
           });
-        });
 
-        allCategories.add(category);
+          allCategories.add(category);
+        }
+
+        setItems(allItems);
+        setCategories([...allCategories]);
+        console.log("✅ Fetched Cloudinary images:", allItems);
+      } catch (err) {
+        console.error("❌ Failed to fetch Cloudinary images:", err);
+        alert("Error fetching images. Check console for details.");
       }
+    };
 
-      setItems(allItems);
-      setCategories([...allCategories]);
-      console.log("✅ Fetched Cloudinary images:", allItems);
-    } catch (err) {
-      console.error("❌ Failed to fetch Cloudinary images:", err);
-      alert("Error fetching images. Check console for details.");
-    }
-  };
+    fetchUploadedImages();
+  }, []);
 
-  fetchUploadedImages();
-}, []);
-
-  
-  // ✅ Add new category
   const handleAddCategory = () => {
     if (newCategory && !categories.includes(newCategory)) {
       setCategories([...categories, newCategory]);
@@ -98,7 +95,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // ✅ Add local image with metadata inputs
   const handleFileUploadLocal = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -117,11 +113,11 @@ export default function AdminDashboard() {
         file,
       };
       setItems((prev) => [...prev, newItem]);
+      setEditingItemId(newItem.id); // immediately open edit for new item
     };
     reader.readAsDataURL(file);
   };
 
-  // ✅ Update metadata (price, qty, desc)
   const handleChangeField = (id, field, value) => {
     setItems((prev) =>
       prev.map((item) =>
@@ -130,32 +126,35 @@ export default function AdminDashboard() {
     );
   };
 
-  // ✅ Delete item
-  const handleDelete = (id) => {
-    setItems(items.filter((item) => item.id !== id));
+  // ✅ Toggle edit only for one item
+  const toggleEdit = (id) => {
+    setEditingItemId((prev) => (prev === id ? null : id));
   };
 
-  // ✅ Logout
+  const handleDelete = (id) => {
+    setItems(items.filter((item) => item.id !== id));
+    if (editingItemId === id) setEditingItemId(null); // close edit mode
+  };
+
   const handleLogout = () => {
     navigate("/");
   };
 
-  // ✅ Upload with metadata to Cloudinary
   const handleUploadAllSigned = async () => {
     if (items.length === 0) return alert("No images to upload!");
 
     const newItems = [...items];
-    //const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
     const BACKEND_URL =
-        process.env.REACT_APP_BACKEND_URL ||
-        (window.location.hostname === "localhost"
+      process.env.REACT_APP_BACKEND_URL ||
+      (window.location.hostname === "localhost"
         ? "http://localhost:5001"
         : "https://rk-backend-cxfa.onrender.com");
 
     const categoryMap = {};
     newItems.forEach((item, index) => {
       if (!item.uploaded && item.file) {
-        const cat = item.category?.trim().replace(/\s+/g, "_") || "Uncategorized";
+        const cat =
+          item.category?.trim().replace(/\s+/g, "_") || "Uncategorized";
         if (!categoryMap[cat]) categoryMap[cat] = [];
         categoryMap[cat].push({ ...item, index });
       }
@@ -168,11 +167,14 @@ export default function AdminDashboard() {
         try {
           const folderPath = `${ASSET_FOLDER}/${cat}`;
           const publicId = name.replace(/\.[^/.]+$/, "");
-
           const contextString = `price=${price}|qty=${qty}|description=${description}`;
 
           const sigRes = await axios.get(
-              `${BACKEND_URL}/api/signature?folder=${encodeURIComponent(folderPath)}&public_id=${encodeURIComponent(publicId)}&context=${encodeURIComponent(contextString)}`
+            `${BACKEND_URL}/api/signature?folder=${encodeURIComponent(
+              folderPath
+            )}&public_id=${encodeURIComponent(
+              publicId
+            )}&context=${encodeURIComponent(contextString)}`
           );
           const { signature, timestamp, apiKey, cloudName } = sigRes.data;
 
@@ -183,8 +185,6 @@ export default function AdminDashboard() {
           formData.append("api_key", apiKey);
           formData.append("timestamp", timestamp);
           formData.append("signature", signature);
-
-          // ✅ Attach metadata using Cloudinary's "context" field
           formData.append("context", contextString);
 
           const response = await axios.post(
@@ -194,7 +194,6 @@ export default function AdminDashboard() {
 
           newItems[index].image = response.data.secure_url;
           newItems[index].uploaded = true;
-
           console.log(`✅ Uploaded successfully: ${name} → ${folderPath}`);
         } catch (err) {
           const errorMsg = err.response?.data?.error?.message || err.message;
@@ -208,7 +207,6 @@ export default function AdminDashboard() {
     alert("✅ All images uploaded successfully!");
   };
 
-  // ✅ Group items by category for display
   const groupedItems = categories.reduce((acc, cat) => {
     acc[cat] = items.filter((item) => item.category === cat);
     return acc;
@@ -278,60 +276,93 @@ export default function AdminDashboard() {
         <div key={cat} className="mb-8">
           <h2 className="text-xl font-semibold text-green-800 mb-3">{cat}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {groupedItems[cat]?.map((item) => (
-              <div
-                key={item.id}
-                className="p-4 bg-white rounded-xl shadow hover:shadow-lg transition"
-              >
-                {item.image && (
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="w-full h-40 object-cover rounded mb-3"
-                  />
-                )}
-                <p className="font-bold text-lg">{item.name}</p>
-
-                <input
-                  type="text"
-                  placeholder="Price"
-                  value={item.price}
-                  onChange={(e) => handleChangeField(item.id, "price", e.target.value)}
-                  className="border p-1 rounded w-full mb-2"
-                />
-
-                <input
-                  type="number"
-                  placeholder="Quantity"
-                  value={item.qty}
-                  onChange={(e) => handleChangeField(item.id, "qty", e.target.value)}
-                  className="border p-1 rounded w-full mb-2"
-                />
-
-                <textarea
-                  placeholder="Description"
-                  value={item.description}
-                  onChange={(e) => handleChangeField(item.id, "description", e.target.value)}
-                  className="border p-1 rounded w-full mb-2"
-                />
-
-                <p className="text-sm text-green-700 mt-1">
-                  Category: {item.category}
-                </p>
-                {item.uploaded ? (
-                  <span className="text-xs text-blue-600">Uploaded</span>
-                ) : (
-                  <span className="text-xs text-orange-600">Not uploaded</span>
-                )}
-
-                <button
-                  onClick={() => handleDelete(item.id)}
-                  className="mt-3 bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+            {groupedItems[cat]?.map((item) => {
+              const isEditing = editingItemId === item.id;
+              return (
+                <div
+                  key={item.id}
+                  className="p-4 bg-white rounded-xl shadow hover:shadow-lg transition"
                 >
-                  Delete
-                </button>
-              </div>
-            ))}
+                  {item.image && (
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="w-full h-40 object-cover rounded mb-3"
+                    />
+                  )}
+                  <p className="font-bold text-lg">{item.name}</p>
+
+                  <input
+                    type="text"
+                    placeholder="Price"
+                    value={item.price}
+                    disabled={!isEditing}
+                    onChange={(e) =>
+                      handleChangeField(item.id, "price", e.target.value)
+                    }
+                    className={`border p-1 rounded w-full mb-2 ${
+                      isEditing ? "bg-white" : "bg-gray-100"
+                    }`}
+                  />
+
+                  <input
+                    type="number"
+                    placeholder="Quantity"
+                    value={item.qty}
+                    disabled={!isEditing}
+                    onChange={(e) =>
+                      handleChangeField(item.id, "qty", e.target.value)
+                    }
+                    className={`border p-1 rounded w-full mb-2 ${
+                      isEditing ? "bg-white" : "bg-gray-100"
+                    }`}
+                  />
+
+                  <textarea
+                    placeholder="Description"
+                    value={item.description}
+                    disabled={!isEditing}
+                    onChange={(e) =>
+                      handleChangeField(item.id, "description", e.target.value)
+                    }
+                    className={`border p-1 rounded w-full mb-2 ${
+                      isEditing ? "bg-white" : "bg-gray-100"
+                    }`}
+                  />
+
+                  <div className="flex justify-between items-center">
+                    <p className="text-sm text-green-700">
+                      Category: {item.category}
+                    </p>
+                    {item.uploaded ? (
+                      <span className="text-xs text-blue-600">Uploaded</span>
+                    ) : (
+                      <span className="text-xs text-orange-600">Not uploaded</span>
+                    )}
+                  </div>
+
+                  <div className="flex justify-between mt-3">
+                    <button
+                      onClick={() => toggleEdit(item.id)}
+                      className={`px-3 py-1 rounded text-white ${
+                        isEditing
+                          ? "bg-green-600 hover:bg-green-700"
+                          : "bg-yellow-500 hover:bg-yellow-600"
+                      }`}
+                    >
+                      {isEditing ? "Save" : "Edit"}
+                    </button>
+
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       ))}
