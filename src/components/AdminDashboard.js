@@ -16,7 +16,9 @@ export default function AdminDashboard() {
   useEffect(() => {
   const fetchUploadedImages = async () => {
     try {
-      const res = await axios.get("http://localhost:5001/api/getImages"); // Backend
+      const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+
+      const res = await axios.get(`${BACKEND_URL}/api/getImages`);
       const folderImages = res.data;
 
       const allItems = [];

@@ -12,43 +12,50 @@ export default function CategoryImageViewer() {
     fetchImagesFromCloud();
   }, []);
 
-  const fetchImagesFromCloud = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("http://localhost:5001/api/getCloudImages");
+const fetchImagesFromCloud = async () => {
+  try {
+    setLoading(true);
 
-      if (!res.ok) throw new Error(`Failed: ${res.status} ${res.statusText}`);
-      const data = await res.json();
-      if (!data || data.length === 0) throw new Error("No images found!");
+    // ✅ Read backend URL from .env
+    const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
-      // ✅ Group by subfolder
-      const grouped = {};
-      data.forEach((img) => {
-        const parts = img.public_id.split("/");
-        const category =
-          parts.length > 1 && parts[1]
-            ? parts.slice(1, -1).join("/") || parts[1]
-            : "Uncategorized";
+    const res = await fetch(`${BACKEND_URL}/api/getCloudImages`);
 
-        if (!grouped[category]) grouped[category] = [];
-        grouped[category].push({
-          id: img.asset_id,
-          name: parts[parts.length - 1],
-          secure_url: img.secure_url,
-          price: Math.floor(Math.random() * 500) + 50,
-          description: "Patanjali product",
-        });
+    if (!res.ok) throw new Error(`Failed: ${res.status} ${res.statusText}`);
+
+    const data = await res.json();
+    if (!data || data.length === 0) throw new Error("No images found!");
+
+    // ✅ Group images by subfolder (category)
+    const grouped = {};
+    data.forEach((img) => {
+      const parts = img.public_id.split("/");
+      const category =
+        parts.length > 1 && parts[1]
+          ? parts.slice(1, -1).join("/") || parts[1]
+          : "Uncategorized";
+
+      if (!grouped[category]) grouped[category] = [];
+      grouped[category].push({
+        id: img.asset_id,
+        name: parts[parts.length - 1],
+        secure_url: img.secure_url,
+        price: Math.floor(Math.random() * 500) + 50,
+        description: "Patanjali product",
       });
+    });
 
-      setImagesByCategory(grouped);
-      const firstCategory = Object.keys(grouped)[0];
-      setExpandedCategory(firstCategory || null);
-    } catch (err) {
-      alert("❌ " + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    setImagesByCategory(grouped);
+
+    const firstCategory = Object.keys(grouped)[0];
+    setExpandedCategory(firstCategory || null);
+  } catch (err) {
+    alert("❌ " + err.message);
+    console.error("Error fetching images:", err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleAddToCart = (item) => {
     if (!cart.find((i) => i.id === item.id)) {
