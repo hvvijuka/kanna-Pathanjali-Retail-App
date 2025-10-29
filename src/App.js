@@ -37,11 +37,11 @@ function App() {
       <Routes>
         {/* Enable routes one by one to avoid blank screens */}
         <Route path="/" element={<LoginPage />} />
-        {/* <Route path="/signup" element={<SignupPage />} /> */}
-        {/* <Route path="/admin" element={<AdminDashboard />} /> */}
-        {/* <Route path="/user" element={<CategoryImageViewer />} /> */}
-        {/* <Route path="/cart" element={<CartPage />} /> */}
-        {/* <Route path="/forgot" element={<ForgotPasswordPage />} /> */}
+        <Route path="/signup" element={<SignupPage />} /> 
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/user" element={<CategoryImageViewer />} />
+        <Route path="/cart" element={<CartPage />} />
+        <Route path="/forgot" element={<ForgotPasswordPage />} />
       </Routes>
     </Suspense>
   );
