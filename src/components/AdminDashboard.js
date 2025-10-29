@@ -16,34 +16,59 @@ export default function AdminDashboard() {
   useEffect(() => {
   const fetchUploadedImages = async () => {
     try {
-      const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
+       //const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+      const BACKEND_URL =
+        process.env.REACT_APP_BACKEND_URL ||
+        (window.location.hostname === "localhost"
+        ? "http://localhost:5001"
+        : "https://rk-backend-cxfa.onrender.com");
+
+      alert(`🧩 Using backend: ${BACKEND_URL}`);
       const res = await axios.get(`${BACKEND_URL}/api/getImages`);
       const folderImages = res.data;
 
       const allItems = [];
       const allCategories = new Set(["All"]);
-      let debugMessage = "Fetched Images:\n";
 
-      // Flatten folder-wise images into a single list
       for (const folder in folderImages) {
         const images = folderImages[folder];
-        const category = folder.replace("Radha/", "") || "All";
-
-        debugMessage += `\n📂 Folder: ${category}\n`;
+        // folder value coming from server is like "Radha/CategoryName"
+        const category = folder.replace(`${ASSET_FOLDER}/`, "") || "All";
 
         images.forEach((img) => {
+          // Backend returns: { id, name, url, category, context }
+          // Always guard against missing fields
+          const id = img.id || img.asset_id || Date.now();
+          const name = img.name || (img.public_id ? img.public_id.split("/").pop() : "unknown");
+          const imageUrl = img.url || img.secure_url || img.url_secure || "";
+          const context = img.context || {}; // server sets context (object) or {}
+
+          // Cloudinary stores custom context in context.custom (object) or sometimes context in string
+          // handle both shapes:
+          const customContext =
+            (context.custom && typeof context.custom === "object")
+              ? context.custom
+              : // sometimes context is { custom: "k=v|k2=v2" } or similar — try parse fallback
+              (typeof context === "object" && typeof context.custom === "string")
+                ? context.custom.split("|").reduce((acc, pair) => {
+                    const [k, v] = pair.split("=");
+                    if (k) acc[k] = v ?? "";
+                    return acc;
+                  }, {})
+                : {};
+
           allItems.push({
-            id: img.id,
-            name: img.name,
-            image: img.url,
+            id,
+            name,
+            image: imageUrl,
             category,
             uploaded: true,
+            price: customContext.price || "",
+            qty: customContext.qty || "",
+            description: customContext.description || "",
             file: null,
           });
-
-          // Build debug text
-          debugMessage += ` - ${img.name}\n`;
         });
 
         allCategories.add(category);
@@ -51,20 +76,18 @@ export default function AdminDashboard() {
 
       setItems(allItems);
       setCategories([...allCategories]);
-
       console.log("Fetched Cloudinary images:", allItems);
-
-      // ✅ Show all image names in one alert (instead of hundreds)
-      alert(debugMessage);
     } catch (err) {
       console.error("Failed to fetch Cloudinary images:", err);
       alert("Error fetching images. Check console for details.");
     }
-    };
-    fetchUploadedImages();
-  }, []);
+  };
 
-  // Add new category
+  fetchUploadedImages();
+}, []);
+
+  
+  // ✅ Add new category
   const handleAddCategory = () => {
     if (newCategory && !categories.includes(newCategory)) {
       setCategories([...categories, newCategory]);
@@ -72,9 +95,7 @@ export default function AdminDashboard() {
     }
   };
 
-
-  
-  // Add local image
+  // ✅ Add local image with metadata inputs
   const handleFileUploadLocal = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -84,8 +105,9 @@ export default function AdminDashboard() {
       const newItem = {
         id: Date.now(),
         name: file.name,
-        price: "₹100",
-        qty: 1,
+        price: "",
+        qty: "",
+        description: "",
         category: selectedCategory,
         image: reader.result,
         uploaded: false,
@@ -96,81 +118,94 @@ export default function AdminDashboard() {
     reader.readAsDataURL(file);
   };
 
-  // Delete item
+  // ✅ Update metadata (price, qty, desc)
+  const handleChangeField = (id, field, value) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, [field]: value } : item
+      )
+    );
+  };
+
+  // ✅ Delete item
   const handleDelete = (id) => {
     setItems(items.filter((item) => item.id !== id));
   };
 
-  // Logout
+  // ✅ Logout
   const handleLogout = () => {
     navigate("/");
   };
 
-
+  // ✅ Upload with metadata to Cloudinary
   const handleUploadAllSigned = async () => {
-  if (items.length === 0) return alert("No images to upload!");
+    if (items.length === 0) return alert("No images to upload!");
 
-  const newItems = [...items];
+    const newItems = [...items];
+    //const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+    const BACKEND_URL =
+        process.env.REACT_APP_BACKEND_URL ||
+        (window.location.hostname === "localhost"
+        ? "http://localhost:5001"
+        : "https://rk-backend-cxfa.onrender.com");
 
-  // ✅ Get backend URL from .env (Render URL)
-  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+    const categoryMap = {};
+    newItems.forEach((item, index) => {
+      if (!item.uploaded && item.file) {
+        const cat = item.category?.trim().replace(/\s+/g, "_") || "Uncategorized";
+        if (!categoryMap[cat]) categoryMap[cat] = [];
+        categoryMap[cat].push({ ...item, index });
+      }
+    });
 
-  // Group items by category
-  const categoryMap = {};
-  newItems.forEach((item, index) => {
-    if (!item.uploaded && item.file) {
-      const cat = item.category?.trim().replace(/\s+/g, "_") || "Uncategorized";
-      if (!categoryMap[cat]) categoryMap[cat] = [];
-      categoryMap[cat].push({ ...item, index });
-    }
-  });
+    for (const cat in categoryMap) {
+      const itemsInCategory = categoryMap[cat];
 
-  for (const cat in categoryMap) {
-    const itemsInCategory = categoryMap[cat];
+      for (const { file, name, price, qty, description, index } of itemsInCategory) {
+        try {
+          const folderPath = `${ASSET_FOLDER}/${cat}`;
+          const publicId = name.replace(/\.[^/.]+$/, "");
 
-    for (const { file, name, index } of itemsInCategory) {
-      try {
-        const folderPath = `${ASSET_FOLDER}/${cat}`;
-        const publicId = name.replace(/\.[^/.]+$/, ""); // remove file extension
+          // Get signature from backend
+          const sigRes = await axios.get(
+            `${BACKEND_URL}/api/signature?folder=${encodeURIComponent(folderPath)}&public_id=${encodeURIComponent(publicId)}`
+          );
+          const { signature, timestamp, apiKey, cloudName } = sigRes.data;
 
-        // ✅ Use backend URL dynamically (from Render)
-        const { data: sigData } = await axios.get(
-          `${BACKEND_URL}/api/signature?folder=${encodeURIComponent(
-            folderPath
-          )}&public_id=${encodeURIComponent(publicId)}`
-        );
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("folder", folderPath);
+          formData.append("public_id", publicId);
+          formData.append("api_key", apiKey);
+          formData.append("timestamp", timestamp);
+          formData.append("signature", signature);
 
-        const { signature, timestamp, apiKey, cloudName } = sigData;
+          // ✅ Attach metadata using Cloudinary's "context" field
+          const contextString = `price=${price}|qty=${qty}|description=${description}`;
+          formData.append("context", contextString);
 
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("folder", folderPath);
-        formData.append("public_id", publicId);
-        formData.append("api_key", apiKey);
-        formData.append("timestamp", timestamp);
-        formData.append("signature", signature);
+          const response = await axios.post(
+            `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+            formData
+          );
 
-        const response = await axios.post(
-          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-          formData
-        );
+          newItems[index].image = response.data.secure_url;
+          newItems[index].uploaded = true;
 
-        newItems[index].image = response.data.secure_url;
-        newItems[index].uploaded = true;
-
-        console.log(`✅ Uploaded successfully: ${name} → ${folderPath}`);
-      } catch (err) {
-        const errorMsg = err.response?.data?.error?.message || err.message;
-        console.error(`❌ Failed to upload ${name}: ${errorMsg}`);
-        alert(`Failed to upload "${name}": ${errorMsg}`);
+          console.log(`✅ Uploaded successfully: ${name} → ${folderPath}`);
+        } catch (err) {
+          const errorMsg = err.response?.data?.error?.message || err.message;
+          console.error(`❌ Failed to upload ${name}: ${errorMsg}`);
+          alert(`Failed to upload "${name}": ${errorMsg}`);
+        }
       }
     }
-  }
 
-  setItems(newItems);
-  alert("✅ All images uploaded successfully!");
+    setItems(newItems);
+    alert("✅ All images uploaded successfully!");
   };
-  // Group items by category for display
+
+  // ✅ Group items by category for display
   const groupedItems = categories.reduce((acc, cat) => {
     acc[cat] = items.filter((item) => item.category === cat);
     return acc;
@@ -253,17 +288,39 @@ export default function AdminDashboard() {
                   />
                 )}
                 <p className="font-bold text-lg">{item.name}</p>
-                <p className="text-gray-600">{item.price}</p>
-                <p className="text-gray-500">Qty: {item.qty}</p>
+
+                <input
+                  type="text"
+                  placeholder="Price"
+                  value={item.price}
+                  onChange={(e) => handleChangeField(item.id, "price", e.target.value)}
+                  className="border p-1 rounded w-full mb-2"
+                />
+
+                <input
+                  type="number"
+                  placeholder="Quantity"
+                  value={item.qty}
+                  onChange={(e) => handleChangeField(item.id, "qty", e.target.value)}
+                  className="border p-1 rounded w-full mb-2"
+                />
+
+                <textarea
+                  placeholder="Description"
+                  value={item.description}
+                  onChange={(e) => handleChangeField(item.id, "description", e.target.value)}
+                  className="border p-1 rounded w-full mb-2"
+                />
+
                 <p className="text-sm text-green-700 mt-1">
                   Category: {item.category}
                 </p>
-                {!item.uploaded && (
+                {item.uploaded ? (
+                  <span className="text-xs text-blue-600">Uploaded</span>
+                ) : (
                   <span className="text-xs text-orange-600">Not uploaded</span>
                 )}
-                {item.uploaded && (
-                  <span className="text-xs text-blue-600">Uploaded</span>
-                )}
+
                 <button
                   onClick={() => handleDelete(item.id)}
                   className="mt-3 bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
