@@ -1,10 +1,10 @@
 {
   "files": {
     "main.css": "/kanna-Pathanjali-Retail-App/static/css/main.974ff618.css",
-    "main.js": "/kanna-Pathanjali-Retail-App/static/js/main.f7aa6777.js",
+    "main.js": "/kanna-Pathanjali-Retail-App/static/js/main.fb3d01b4.js",
     "static/js/133.59047dd2.chunk.js": "/kanna-Pathanjali-Retail-App/static/js/133.59047dd2.chunk.js",
     "static/js/318.e4540421.chunk.js": "/kanna-Pathanjali-Retail-App/static/js/318.e4540421.chunk.js",
-    "static/js/256.7fe9e47a.chunk.js": "/kanna-Pathanjali-Retail-App/static/js/256.7fe9e47a.chunk.js",
+    "static/js/256.8c6e64c0.chunk.js": "/kanna-Pathanjali-Retail-App/static/js/256.8c6e64c0.chunk.js",
     "static/js/538.3a506350.chunk.js": "/kanna-Pathanjali-Retail-App/static/js/538.3a506350.chunk.js",
     "static/js/460.2ed5d902.chunk.js": "/kanna-Pathanjali-Retail-App/static/js/460.2ed5d902.chunk.js",
     "static/js/768.f1998e94.chunk.js": "/kanna-Pathanjali-Retail-App/static/js/768.f1998e94.chunk.js",
@@ -12,10 +12,10 @@
     "static/media/background.jpg": "/kanna-Pathanjali-Retail-App/static/media/background.f30ffd539a82e532dec4.jpg",
     "index.html": "/kanna-Pathanjali-Retail-App/index.html",
     "main.974ff618.css.map": "/kanna-Pathanjali-Retail-App/static/css/main.974ff618.css.map",
-    "main.f7aa6777.js.map": "/kanna-Pathanjali-Retail-App/static/js/main.f7aa6777.js.map",
+    "main.fb3d01b4.js.map": "/kanna-Pathanjali-Retail-App/static/js/main.fb3d01b4.js.map",
     "133.59047dd2.chunk.js.map": "/kanna-Pathanjali-Retail-App/static/js/133.59047dd2.chunk.js.map",
     "318.e4540421.chunk.js.map": "/kanna-Pathanjali-Retail-App/static/js/318.e4540421.chunk.js.map",
-    "256.7fe9e47a.chunk.js.map": "/kanna-Pathanjali-Retail-App/static/js/256.7fe9e47a.chunk.js.map",
+    "256.8c6e64c0.chunk.js.map": "/kanna-Pathanjali-Retail-App/static/js/256.8c6e64c0.chunk.js.map",
     "538.3a506350.chunk.js.map": "/kanna-Pathanjali-Retail-App/static/js/538.3a506350.chunk.js.map",
     "460.2ed5d902.chunk.js.map": "/kanna-Pathanjali-Retail-App/static/js/460.2ed5d902.chunk.js.map",
     "768.f1998e94.chunk.js.map": "/kanna-Pathanjali-Retail-App/static/js/768.f1998e94.chunk.js.map",
@@ -23,6 +23,6 @@
   },
   "entrypoints": [
     "static/css/main.974ff618.css",
-    "static/js/main.f7aa6777.js"
+    "static/js/main.fb3d01b4.js"
   ]
 }
