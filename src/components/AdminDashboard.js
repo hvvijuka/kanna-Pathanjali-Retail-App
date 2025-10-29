@@ -10,84 +10,89 @@ export default function AdminDashboard() {
   const [newCategory, setNewCategory] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [items, setItems] = useState([]);
-  const [editingItemId, setEditingItemId] = useState(null); // ✅ only one editable item
+  const [editingItemId, setEditingItemId] = useState(null);
+  const [hasEdits, setHasEdits] = useState(false); // ✅ track unsaved edits
   const navigate = useNavigate();
 
+
   useEffect(() => {
-    const fetchUploadedImages = async () => {
-      try {
-        const BACKEND_URL =
-          process.env.REACT_APP_BACKEND_URL ||
-          (window.location.hostname === "localhost"
-            ? "http://localhost:5001"
-            : "https://rk-backend-cxfa.onrender.com");
+  const fetchUploadedImages = async () => {
+    try {
+      const BACKEND_URL =
+        process.env.REACT_APP_BACKEND_URL ||
+        (window.location.hostname === "localhost"
+          ? "http://localhost:5001"
+          : "https://rk-backend-cxfa.onrender.com");
 
-        console.log(`🧩 Using backend: ${BACKEND_URL}`);
-        const res = await axios.get(`${BACKEND_URL}/api/getImages`);
-        const folderImages = res.data;
+      console.log(`🧩 Using backend: ${BACKEND_URL}`);
+      const res = await axios.get(`${BACKEND_URL}/api/getImages`);
+      const folderImages = res.data;
 
-        const allItems = [];
-        const allCategories = new Set(["All"]);
+      const allItems = [];
+      const allCategories = new Set(["All"]);
 
-        for (const folder in folderImages) {
-          const images = folderImages[folder];
-          const category = folder.replace(/^Radha\//, "") || "All";
+      for (const folder in folderImages) {
+        const images = folderImages[folder];
+        const category = folder.replace(/^Radha\//, "") || "All";
 
-          images.forEach((img) => {
-            const id = img.asset_id || Date.now() + Math.random();
-            const name =
-              img.original_filename ||
-              img.public_id?.split("/").pop() ||
-              "unknown";
-            const imageUrl = img.secure_url || img.url || "";
+        images.forEach((img) => {
+          const id = img.asset_id || Date.now() + Math.random();
+          const name =
+            img.original_filename ||
+            img.public_id?.split("/").pop() ||
+            "unknown";
+          const imageUrl = img.secure_url || img.url || "";
+          const cloudinaryId = img.public_id; // real public_id
 
-            let price = "",
-              qty = "",
-              description = "";
-
-            if (img.context) {
-              const custom = img.context.custom || img.context;
-              if (typeof custom === "object") {
-                price = custom.price || "";
-                qty = custom.qty || "";
-                description = custom.description || "";
-              } else if (typeof custom === "string") {
-                custom.split("|").forEach((pair) => {
-                  const [k, v] = pair.split("=");
-                  if (k === "price") price = v;
-                  if (k === "qty") qty = v;
-                  if (k === "description") description = v;
-                });
-              }
+          // Parse saved context
+          let price = "", qty = "", description = "";
+          if (img.context) {
+            const ctx = img.context.custom || img.context;
+            if (typeof ctx === "object") {
+              price = ctx.price || "";
+              qty = ctx.qty || "";
+              description = ctx.description || "";
+            } else if (typeof ctx === "string") {
+              ctx.split("|").forEach((pair) => {
+                const [k, v] = pair.split("=");
+                if (k === "price") price = v;
+                if (k === "qty") qty = v;
+                if (k === "description") description = v;
+              });
             }
+          }
 
-            allItems.push({
-              id,
-              name,
-              image: imageUrl,
-              category,
-              uploaded: true,
-              price,
-              qty,
-              description,
-            });
+          allItems.push({
+            id,
+            name,
+            image: imageUrl,
+            category,
+            uploaded: true,
+            price,
+            qty,
+            description,
+            public_id: cloudinaryId, // use real public_id
+            edited: false,           // track edits
           });
+        });
 
-          allCategories.add(category);
-        }
-
-        setItems(allItems);
-        setCategories([...allCategories]);
-        console.log("✅ Fetched Cloudinary images:", allItems);
-      } catch (err) {
-        console.error("❌ Failed to fetch Cloudinary images:", err);
-        alert("Error fetching images. Check console for details.");
+        allCategories.add(category);
       }
-    };
 
-    fetchUploadedImages();
-  }, []);
+      setItems(allItems);
+      setCategories([...allCategories]);
+      console.log("✅ Fetched Cloudinary images:", allItems);
+    } catch (err) {
+      console.error("❌ Failed to fetch Cloudinary images:", err);
+      alert("Error fetching images. Check console for details.");
+    }
+  };
 
+  fetchUploadedImages();
+}, []);
+
+
+  // ✅ Add new category
   const handleAddCategory = () => {
     if (newCategory && !categories.includes(newCategory)) {
       setCategories([...categories, newCategory]);
@@ -95,6 +100,7 @@ export default function AdminDashboard() {
     }
   };
 
+  // ✅ Local file upload (before uploading to Cloudinary)
   const handleFileUploadLocal = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -113,75 +119,93 @@ export default function AdminDashboard() {
         file,
       };
       setItems((prev) => [...prev, newItem]);
-      setEditingItemId(newItem.id); // immediately open edit for new item
+      setEditingItemId(newItem.id);
     };
     reader.readAsDataURL(file);
   };
 
+  // ✅ Track field edits
   const handleChangeField = (id, field, value) => {
     setItems((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item
+        item.id === id ? { ...item, [field]: value, edited: true } : item
       )
     );
+    setHasEdits(true); // show Upload button when any field changes
   };
 
-  // ✅ Toggle edit only for one item
+  // ✅ Toggle edit mode
   const toggleEdit = (id) => {
     setEditingItemId((prev) => (prev === id ? null : id));
   };
 
+  // ✅ Delete item
   const handleDelete = (id) => {
     setItems(items.filter((item) => item.id !== id));
-    if (editingItemId === id) setEditingItemId(null); // close edit mode
+    if (editingItemId === id) setEditingItemId(null);
   };
 
+  // ✅ Logout
   const handleLogout = () => {
     navigate("/");
   };
 
+
+
+
   const handleUploadAllSigned = async () => {
-    if (items.length === 0) return alert("No images to upload!");
+  if (items.length === 0) return alert("No images to upload!");
 
-    const newItems = [...items];
-    const BACKEND_URL =
-      process.env.REACT_APP_BACKEND_URL ||
-      (window.location.hostname === "localhost"
-        ? "http://localhost:5001"
-        : "https://rk-backend-cxfa.onrender.com");
+  const newItems = [...items];
+  const BACKEND_URL =
+    process.env.REACT_APP_BACKEND_URL ||
+    (window.location.hostname === "localhost"
+      ? "http://localhost:5001"
+      : "https://rk-backend-cxfa.onrender.com");
 
-    const categoryMap = {};
-    newItems.forEach((item, index) => {
-      if (!item.uploaded && item.file) {
-        const cat =
-          item.category?.trim().replace(/\s+/g, "_") || "Uncategorized";
-        if (!categoryMap[cat]) categoryMap[cat] = [];
-        categoryMap[cat].push({ ...item, index });
-      }
-    });
+  // Group items by category
+  const categoryMap = {};
+  newItems.forEach((item, index) => {
+    if ((!item.uploaded && item.file) || item.edited) {
+      const cat = item.category?.trim().replace(/\s+/g, "_") || "Uncategorized";
+      if (!categoryMap[cat]) categoryMap[cat] = [];
+      categoryMap[cat].push({ ...item, index });
+    }
+  });
 
-    for (const cat in categoryMap) {
-      const itemsInCategory = categoryMap[cat];
+  for (const cat in categoryMap) {
+    const itemsInCategory = categoryMap[cat];
 
-      for (const { file, name, price, qty, description, index } of itemsInCategory) {
-        try {
-          const folderPath = `${ASSET_FOLDER}/${cat}`;
-          const publicId = name.replace(/\.[^/.]+$/, "");
-          const contextString = `price=${price}|qty=${qty}|description=${description}`;
+    for (const itemData of itemsInCategory) {
+      const { file, name, price, qty, description, index, public_id } = itemData;
 
-          const sigRes = await axios.get(
-            `${BACKEND_URL}/api/signature?folder=${encodeURIComponent(
-              folderPath
-            )}&public_id=${encodeURIComponent(
-              publicId
-            )}&context=${encodeURIComponent(contextString)}`
-          );
-          const { signature, timestamp, apiKey, cloudName } = sigRes.data;
+      try {
+        if (!name && !file) {
+          console.warn("⚠️ Skipping item with missing name and no file");
+          continue;
+        }
 
+        const folderPath = `${ASSET_FOLDER}/${cat}`;
+        const cleanedName = name ? name.replace(/\.[^/.]+$/, "") : `unnamed_${Date.now()}`;
+        const contextString = `price=${price || ""}|qty=${qty || ""}|description=${description || ""}`;
+
+        // Determine the correct public_id for Cloudinary
+        const actualPublicId = public_id || `${folderPath}/${cleanedName}`;
+
+        // Fetch signed credentials
+        const sigURL = file
+          ? `${BACKEND_URL}/api/signature?folder=${encodeURIComponent(folderPath)}&public_id=${encodeURIComponent(cleanedName)}&context=${encodeURIComponent(contextString)}&type=upload`
+          : `${BACKEND_URL}/api/signature?public_id=${encodeURIComponent(actualPublicId)}&context=${encodeURIComponent(contextString)}&type=upload`;
+
+        const sigRes = await axios.get(sigURL);
+        const { signature, timestamp, apiKey, cloudName } = sigRes.data;
+
+        if (file) {
+          // 🟢 Upload new file
           const formData = new FormData();
           formData.append("file", file);
           formData.append("folder", folderPath);
-          formData.append("public_id", publicId);
+          formData.append("public_id", cleanedName);
           formData.append("api_key", apiKey);
           formData.append("timestamp", timestamp);
           formData.append("signature", signature);
@@ -192,21 +216,51 @@ export default function AdminDashboard() {
             formData
           );
 
+          // Save Cloudinary info
           newItems[index].image = response.data.secure_url;
-          newItems[index].uploaded = true;
+          newItems[index].public_id = response.data.public_id;
           console.log(`✅ Uploaded successfully: ${name} → ${folderPath}`);
-        } catch (err) {
-          const errorMsg = err.response?.data?.error?.message || err.message;
-          console.error(`❌ Failed to upload ${name}: ${errorMsg}`);
-          alert(`Failed to upload "${name}": ${errorMsg}`);
+        } else {
+          // 🟡 Metadata update only
+          if (!newItems[index].public_id) {
+            console.warn(`⚠️ Skipping metadata update: ${name} has no public_id yet`);
+            continue;
+          }
+
+          const formData = new FormData();
+          formData.append("public_id", newItems[index].public_id);
+          formData.append("type", "upload"); // required for explicit API
+          formData.append("context", contextString);
+          formData.append("api_key", apiKey);
+          formData.append("timestamp", timestamp);
+          formData.append("signature", signature);
+
+          await axios.post(
+            `https://api.cloudinary.com/v1_1/${cloudName}/image/explicit`,
+            formData
+          );
+
+          console.log(`📝 Updated metadata for: ${name}`);
         }
+
+        // ✅ Mark item as uploaded & saved
+        newItems[index].uploaded = true;
+        newItems[index].edited = false;
+      } catch (err) {
+        const errorMsg = err.response?.data?.error?.message || err.message;
+        console.error(`❌ Failed to upload ${name}: ${errorMsg}`);
+        alert(`Failed to upload "${name}": ${errorMsg}`);
       }
     }
+  }
 
-    setItems(newItems);
-    alert("✅ All images uploaded successfully!");
-  };
+  setItems(newItems);
+  setHasEdits(false);
+  alert("✅ All uploads & edits saved successfully!");
+};
 
+
+  // ✅ Group items by category
   const groupedItems = categories.reduce((acc, cat) => {
     acc[cat] = items.filter((item) => item.category === cat);
     return acc;
@@ -261,13 +315,15 @@ export default function AdminDashboard() {
         />
       </div>
 
-      {/* Upload All Button */}
-      {items.some((item) => !item.uploaded) && (
+      {/* ✅ Upload All Button shows if new or edited items exist */}
+      {(items.some((item) => !item.uploaded) || hasEdits) && (
         <button
           onClick={handleUploadAllSigned}
           className="mb-6 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
         >
-          Upload All to Cloudinary
+          {hasEdits
+            ? "Update Edited Items to Cloudinary"
+            : "Upload All to Cloudinary"}
         </button>
       )}
 
@@ -337,7 +393,9 @@ export default function AdminDashboard() {
                     {item.uploaded ? (
                       <span className="text-xs text-blue-600">Uploaded</span>
                     ) : (
-                      <span className="text-xs text-orange-600">Not uploaded</span>
+                      <span className="text-xs text-orange-600">
+                        Not uploaded
+                      </span>
                     )}
                   </div>
 
