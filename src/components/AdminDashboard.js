@@ -23,6 +23,8 @@ export default function AdminDashboard() {
     ? "http://localhost:5001"
     : "https://rk-backend-cxfa.onrender.com";
 
+    alert(`🧩 Using backend: ${BACKEND_URL}`);
+
       console.log(`🧩 Using backend: ${BACKEND_URL}`);
       const res = await axios.get(`${BACKEND_URL}/api/getImages`);
       const folderImages = res.data;
