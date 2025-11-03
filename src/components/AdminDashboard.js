@@ -18,11 +18,10 @@ export default function AdminDashboard() {
   useEffect(() => {
   const fetchUploadedImages = async () => {
     try {
-      const BACKEND_URL =
-        process.env.REACT_APP_BACKEND_URL ||
-        (window.location.hostname === "localhost"
-          ? "http://localhost:5001"
-          : "https://rk-backend-cxfa.onrender.com");
+    const BACKEND_URL =
+    window.location.hostname === "localhost"
+    ? "http://localhost:5001"
+    : "https://rk-backend-cxfa.onrender.com";
 
       console.log(`🧩 Using backend: ${BACKEND_URL}`);
       const res = await axios.get(`${BACKEND_URL}/api/getImages`);

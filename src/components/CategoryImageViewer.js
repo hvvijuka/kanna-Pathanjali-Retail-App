@@ -17,10 +17,10 @@ const fetchImagesFromCloud = async () => {
     setLoading(true);
 
     const BACKEND_URL =
-      process.env.REACT_APP_BACKEND_URL ||
-      (window.location.hostname === "localhost"
-        ? "http://localhost:5001"
-        : "https://rk-backend-cxfa.onrender.com");
+    window.location.hostname === "localhost"
+    ? "http://localhost:5001"
+    : "https://rk-backend-cxfa.onrender.com";
+
 
     const res = await fetch(`${BACKEND_URL}/api/getCloudImages`);
     if (!res.ok) throw new Error(`Failed: ${res.status} ${res.statusText}`);
