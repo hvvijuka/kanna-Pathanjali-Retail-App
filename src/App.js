@@ -8,6 +8,10 @@ const AdminDashboard = lazy(() => import("./components/AdminDashboard"));
 const CategoryImageViewer = lazy(() => import("./components/CategoryImageViewer"));
 const CartPage = lazy(() => import("./components/CartPage"));
 const ForgotPasswordPage = lazy(() => import("./components/ForgotPasswordPage"));
+import { AuthProvider } from "./context/AuthContext";
+import { CartProvider } from "./context/CartContext";
+
+
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -34,6 +38,8 @@ function App() {
         </div>
       }
     >
+      <AuthProvider>
+      <CartProvider>
       <Routes>
         {/* Enable routes one by one to avoid blank screens */}
         <Route path="/" element={<LoginPage />} />
@@ -43,6 +49,8 @@ function App() {
         <Route path="/cart" element={<CartPage />} />
         <Route path="/forgot" element={<ForgotPasswordPage />} />
       </Routes>
+            </CartProvider>
+    </AuthProvider>
     </Suspense>
   );
 }
