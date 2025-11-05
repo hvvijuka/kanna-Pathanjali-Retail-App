@@ -6,9 +6,11 @@
   "dependencies": {
     "autoprefixer": "^10.4.19",
     "axios": "^1.12.2",
+    "bcryptjs": "^3.0.3",
     "cloudinary": "^2.8.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "mongoose": "^8.19.3",
     "postcss": "^8.4.38",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -38,6 +40,7 @@
     ]
   },
   "devDependencies": {
+    "eslint-plugin-react-hooks": "^7.0.1",
     "gh-pages": "^6.3.0"
   }
 }

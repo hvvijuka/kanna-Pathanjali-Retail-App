@@ -14,19 +14,17 @@ export default function AdminDashboard() {
   const [hasEdits, setHasEdits] = useState(false); // ✅ track unsaved edits
   const navigate = useNavigate();
 
-
-  useEffect(() => {
+useEffect(() => {
   const fetchUploadedImages = async () => {
     try {
-    const BACKEND_URL =
-    window.location.hostname === "localhost"
-    ? "http://localhost:5001"
-    : "https://rk-backend-cxfa.onrender.com";
-
-    alert(`🧩 Using backend: ${BACKEND_URL}`);
+      const BACKEND_URL =
+        window.location.hostname === "localhost"
+          ? "http://localhost:5001"
+          : "https://rk-backend-cxfa.onrender.com";
 
       console.log(`🧩 Using backend: ${BACKEND_URL}`);
-      const res = await axios.get(`${BACKEND_URL}/api/getImages`);
+
+      const res = await axios.get(`${BACKEND_URL}/api/getImages`); // or /api/getCloudImages
       const folderImages = res.data;
 
       const allItems = [];
@@ -38,30 +36,14 @@ export default function AdminDashboard() {
 
         images.forEach((img) => {
           const id = img.asset_id || Date.now() + Math.random();
-          const name =
-            img.original_filename ||
-            img.public_id?.split("/").pop() ||
-            "unknown";
+          const name = img.name || img.public_id?.split("/").pop() || "unknown";
           const imageUrl = img.secure_url || img.url || "";
-          const cloudinaryId = img.public_id; // real public_id
+          const cloudinaryId = img.public_id;
 
-          // Parse saved context
-          let price = "", qty = "", description = "";
-          if (img.context) {
-            const ctx = img.context.custom || img.context;
-            if (typeof ctx === "object") {
-              price = ctx.price || "";
-              qty = ctx.qty || "";
-              description = ctx.description || "";
-            } else if (typeof ctx === "string") {
-              ctx.split("|").forEach((pair) => {
-                const [k, v] = pair.split("=");
-                if (k === "price") price = v;
-                if (k === "qty") qty = v;
-                if (k === "description") description = v;
-              });
-            }
-          }
+          const ctx = img.context?.custom || {};
+          const price = ctx.price || "";
+          const qty = ctx.qty || "";
+          const description = ctx.description || "";
 
           allItems.push({
             id,
@@ -72,8 +54,8 @@ export default function AdminDashboard() {
             price,
             qty,
             description,
-            public_id: cloudinaryId, // use real public_id
-            edited: false,           // track edits
+            public_id: cloudinaryId,
+            edited: false,
           });
         });
 
@@ -92,6 +74,7 @@ export default function AdminDashboard() {
   fetchUploadedImages();
 }, []);
 
+  
 
   // ✅ Add new category
   const handleAddCategory = () => {
@@ -151,6 +134,10 @@ export default function AdminDashboard() {
     navigate("/");
   };
 
+ // ✅ Logout
+  const handleOrders = () => {
+    navigate("/orders");
+  };
 
 
 
@@ -277,6 +264,16 @@ export default function AdminDashboard() {
           className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
         >
           Logout
+        </button>
+      </div>
+
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-green-700">Admin Dashboard</h1>
+        <button
+          onClick={handleOrders}
+          className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+        >
+          Orders
         </button>
       </div>
 

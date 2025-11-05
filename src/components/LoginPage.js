@@ -1,17 +1,51 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import bg from "../assets/background.jpg";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const { login } = useAuth(); // store user globally
 
-  const handleLogin = () => {
-    if (email === "admin" && password === "admin123") {
-      navigate("/admin");
-    } else {
-      navigate("/user");
+  const handleLogin = async () => {
+    if (!username || !password) {
+      alert("Please enter username and password!");
+      return;
+    }
+
+    try {
+      const BACKEND_URL =
+      process.env.REACT_APP_BACKEND_URL ||
+      (window.location.hostname === "localhost"
+        ? "http://localhost:5001"
+        : "https://rk-backend-cxfa.onrender.com");
+
+    const res = await fetch(`${BACKEND_URL}/api/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+    });
+
+      const data = await res.json();
+
+      if (data.error) {
+        alert(data.error);
+      } else {
+        alert("Login successful!");
+        login(data.user); // save in AuthContext + localStorage
+
+        // Redirect admin differently if needed
+        if (data.user.username === "admin") {
+          navigate("/admin");
+        } else {
+          navigate("/user");
+        }
+      }
+    } catch (err) {
+      console.error("Login failed:", err);
+      alert("Something went wrong while logging in!");
     }
   };
 
@@ -26,10 +60,10 @@ export default function LoginPage() {
         </h1>
 
         <input
-          type="email"
-          placeholder="Email"
+          type="text"
+          placeholder="Username"
           className="w-full p-2 mb-3 border rounded"
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => setUsername(e.target.value)}
         />
         <input
           type="password"
@@ -38,7 +72,7 @@ export default function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
         />
 
-        <button onClick={handleLogin} className="w-full mb-3">
+        <button onClick={handleLogin} className="w-full mb-3 bg-green-600 text-white py-2 rounded hover:bg-green-700">
           Login
         </button>
 
@@ -55,4 +89,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
