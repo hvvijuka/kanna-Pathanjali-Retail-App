@@ -13,6 +13,7 @@ export default function AdminDashboard() {
   const [editingItemId, setEditingItemId] = useState(null);
   const [hasEdits, setHasEdits] = useState(false); // ✅ track unsaved edits
   const navigate = useNavigate();
+  const [expandedCategory, setExpandedCategory] = useState(null);
 
 useEffect(() => {
   const fetchUploadedImages = async () => {
@@ -254,82 +255,98 @@ useEffect(() => {
     return acc;
   }, {});
 
-  return (
-    <div className="p-8 bg-green-50 min-h-screen">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-green-700">Admin Dashboard</h1>
-        <button
-          onClick={handleLogout}
-          className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+const handleToggleCategory = (category) =>
+    setExpandedCategory(expandedCategory === category ? null : category);
+
+
+return (
+  <div className="p-8 bg-green-50 min-h-screen">
+    {/* Header */}
+    <div className="flex justify-between items-center mb-6">
+      <h1 className="text-2xl font-bold text-green-700">Admin Dashboard</h1>
+      <button
+        onClick={handleLogout}
+        className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+      >
+        Logout
+      </button>
+    </div>
+
+    <div className="flex justify-between items-center mb-6">
+      <h1 className="text-2xl font-bold text-green-700">Admin Dashboard</h1>
+      <button
+        onClick={handleOrders}
+        className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+      >
+        Orders
+      </button>
+    </div>
+
+    {/* Category Management */}
+    <div className="flex gap-2 mb-4">
+      <input
+        value={newCategory}
+        onChange={(e) => setNewCategory(e.target.value)}
+        placeholder="New Category"
+        className="border p-2 rounded w-64"
+      />
+      <button
+        onClick={handleAddCategory}
+        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+      >
+        Add Category
+      </button>
+    </div>
+
+    {/* File Upload */}
+    <div className="flex gap-2 mb-6">
+      <select
+        onChange={(e) => setSelectedCategory(e.target.value)}
+        className="border p-2 rounded"
+        value={selectedCategory}
+      >
+        {categories.map((cat) => (
+          <option key={cat}>{cat}</option>
+        ))}
+      </select>
+
+      <input
+        type="file"
+        accept="image/*"
+        onChange={handleFileUploadLocal}
+        className="border p-2 rounded"
+      />
+    </div>
+
+    {/* Upload All Button */}
+    {(items.some((item) => !item.uploaded) || hasEdits) && (
+      <button
+        onClick={handleUploadAllSigned}
+        className="mb-6 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+      >
+        {hasEdits
+          ? "Update Edited Items to Cloudinary"
+          : "Upload All to Cloudinary"}
+      </button>
+    )}
+
+    {/* Display items grouped by category */}
+    {categories.map((cat) => (
+      <div key={cat} className="mb-8 border rounded-lg shadow-sm bg-white">
+        {/* Category Header */}
+        <div
+          className="flex justify-between items-center p-4 bg-green-100 cursor-pointer rounded-t-lg"
+          onClick={() => handleToggleCategory(cat)}
         >
-          Logout
-        </button>
-      </div>
+          <h3 className="font-semibold text-lg text-gray-800">{cat}</h3>
+          <span className="text-gray-600">
+            {expandedCategory === cat ? "▲" : "▼"}
+          </span>
+        </div>
 
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-green-700">Admin Dashboard</h1>
-        <button
-          onClick={handleOrders}
-          className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-        >
-          Orders
-        </button>
-      </div>
-
-      {/* Category Management */}
-      <div className="flex gap-2 mb-4">
-        <input
-          value={newCategory}
-          onChange={(e) => setNewCategory(e.target.value)}
-          placeholder="New Category"
-          className="border p-2 rounded w-64"
-        />
-        <button
-          onClick={handleAddCategory}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-        >
-          Add Category
-        </button>
-      </div>
-
-      {/* File Upload */}
-      <div className="flex gap-2 mb-6">
-        <select
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          className="border p-2 rounded"
-          value={selectedCategory}
-        >
-          {categories.map((cat) => (
-            <option key={cat}>{cat}</option>
-          ))}
-        </select>
-
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleFileUploadLocal}
-          className="border p-2 rounded"
-        />
-      </div>
-
-      {/* ✅ Upload All Button shows if new or edited items exist */}
-      {(items.some((item) => !item.uploaded) || hasEdits) && (
-        <button
-          onClick={handleUploadAllSigned}
-          className="mb-6 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
-        >
-          {hasEdits
-            ? "Update Edited Items to Cloudinary"
-            : "Upload All to Cloudinary"}
-        </button>
-      )}
-
-      {/* Display items grouped by category */}
-      {categories.map((cat) => (
-        <div key={cat} className="mb-8">
-          <h2 className="text-xl font-semibold text-green-800 mb-3">{cat}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        {/* Category Content - only show when expanded */}
+        {expandedCategory === cat && (
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {groupedItems[cat]?.map((item) => {
               const isEditing = editingItemId === item.id;
               return (
@@ -391,9 +408,7 @@ useEffect(() => {
                     {item.uploaded ? (
                       <span className="text-xs text-blue-600">Uploaded</span>
                     ) : (
-                      <span className="text-xs text-orange-600">
-                        Not uploaded
-                      </span>
+                      <span className="text-xs text-orange-600">Not uploaded</span>
                     )}
                   </div>
 
@@ -420,8 +435,9 @@ useEffect(() => {
               );
             })}
           </div>
-        </div>
-      ))}
-    </div>
-  );
+        )}
+      </div>
+    ))}
+  </div>
+);
 }
